@@ -2,17 +2,19 @@
 
 import { ExclamationTriangleIcon } from "@heroicons/react/20/solid";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Check } from "lucide-react";
 import React, { Fragment, useEffect, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
-import FormSection from "@/components/FormSection";
 import Input from "@/components/Input";
 import Modal from "@/components/Modal";
 import MutationButton from "@/components/MutationButton";
 import NumberInput from "@/components/NumberInput";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
 import { useCurrentCompany, useCurrentUser } from "@/global";
 import { currencyCodes, sanctionedCountries, supportedCountries } from "@/models/constants";
@@ -55,19 +57,29 @@ const DividendSection = () => {
     },
   });
 
-  const [minimumDividendPaymentAmount, setMinimumDividendPaymentAmount] = useState<number | null>(
-    data.minimum_dividend_payment_in_cents / 100,
-  );
+  const formSchema = z.object({
+    minimum_dividend_payment_in_cents: z
+      .number()
+      .min(data.min_minimum_dividend_payment_in_cents / 100, "Amount is too low")
+      .max(data.max_minimum_dividend_payment_in_cents / 100, "Amount is too high"),
+  });
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      minimum_dividend_payment_in_cents: data.minimum_dividend_payment_in_cents / 100,
+    },
+  });
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (values: z.infer<typeof formSchema>) => {
       await request({
         method: "PATCH",
         accept: "json",
         url: settings_dividend_path(),
         jsonData: {
           user: {
-            minimum_dividend_payment_in_cents: (minimumDividendPaymentAmount ?? 0) * 100,
+            minimum_dividend_payment_in_cents: values.minimum_dividend_payment_in_cents * 100,
           },
         },
         assertOk: true,
@@ -77,27 +89,46 @@ const DividendSection = () => {
   });
 
   return (
-    <FormSection title="Dividends" onSubmit={e(() => saveMutation.mutate(), "prevent")}>
-      <CardContent className="grid gap-4">
-        <NumberInput
-          value={minimumDividendPaymentAmount}
-          onChange={setMinimumDividendPaymentAmount}
-          label="Minimum dividend payout amount"
-          max={data.max_minimum_dividend_payment_in_cents / 100}
-          min={data.min_minimum_dividend_payment_in_cents / 100}
-          step={0.01}
-          placeholder="10"
-          prefix="$"
-          help="Payments below this threshold will be retained."
-        />
-      </CardContent>
-      <CardFooter className="flex-wrap gap-4">
-        <MutationButton type="submit" mutation={saveMutation} loadingText="Saving...">
-          Save changes
-        </MutationButton>
-        <div>This change will affect all companies you invested in through Flexile.</div>
-      </CardFooter>
-    </FormSection>
+    <Form {...form}>
+      <form
+        className="grid gap-x-5 gap-y-3 md:grid-cols-[25%_1fr]"
+        onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}
+      >
+        <hgroup>
+          <h2 className="text-xl font-bold">Dividends</h2>
+        </hgroup>
+        <Card>
+          <CardContent className="grid gap-4">
+            <FormField
+              control={form.control}
+              name="minimum_dividend_payment_in_cents"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Minimum dividend payout amount</FormLabel>
+                  <FormControl>
+                    <NumberInput
+                      {...field}
+                      max={data.max_minimum_dividend_payment_in_cents / 100}
+                      min={data.min_minimum_dividend_payment_in_cents / 100}
+                      step={0.01}
+                      placeholder="10"
+                      prefix="$"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+          <CardFooter className="flex-wrap gap-4">
+            <MutationButton type="submit" mutation={saveMutation} loadingText="Saving...">
+              Save changes
+            </MutationButton>
+            <div>This change will affect all companies you invested in through Flexile.</div>
+          </CardFooter>
+        </Card>
+      </form>
+    </Form>
   );
 };
 
@@ -131,9 +162,20 @@ const BankAccountsSection = () => {
     },
   });
 
+  const formSchema = z.object({
+    wallet_address: z.string().nullable(),
+    bank_accounts: z.array(bankAccountSchema),
+  });
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      wallet_address: data.wallet_address,
+      bank_accounts: data.bank_accounts,
+    },
+  });
+
   const [editingWalletPayoutMethod, setEditingWalletPayoutMethod] = useState(false);
-  const [walletAddress, setWalletAddress] = useState(data.wallet_address || "");
-  const [bankAccounts, setBankAccounts] = useState(data.bank_accounts);
   const [addingBankAccount, setAddingBankAccount] = useState(false);
   const [editingBankAccount, setEditingBankAccount] = useState<BankAccount | null>(null);
   const [bankAccountForInvoices, setBankAccountForInvoices] = useState(
@@ -190,131 +232,143 @@ const BankAccountsSection = () => {
   if (!isFromSanctionedCountry && !showWalletPayoutMethod && !data.bank_account_currency) return null;
 
   return (
-    <FormSection title="Payout method">
-      <CardContent>
-        {isFromSanctionedCountry ? (
-          <div>
-            <Alert variant="destructive">
-              <ExclamationTriangleIcon />
-              <AlertTitle>Payouts are disabled</AlertTitle>
-              <AlertDescription>
-                Unfortunately, due to regulatory restrictions and compliance with international sanctions, individuals
-                from sanctioned countries are unable to receive payments through our platform.
-              </AlertDescription>
-            </Alert>
-          </div>
-        ) : (
-          <>
-            {showWalletPayoutMethod ? (
+    <Form {...form}>
+      <form className="grid gap-x-5 gap-y-3 md:grid-cols-[25%_1fr]">
+        <hgroup>
+          <h2 className="text-xl font-bold">Payout method</h2>
+        </hgroup>
+        <Card>
+          <CardContent>
+            {isFromSanctionedCountry ? (
+              <div>
+                <Alert variant="destructive">
+                  <ExclamationTriangleIcon />
+                  <AlertTitle>Payouts are disabled</AlertTitle>
+                  <AlertDescription>
+                    Unfortunately, due to regulatory restrictions and compliance with international sanctions,
+                    individuals from sanctioned countries are unable to receive payments through our platform.
+                  </AlertDescription>
+                </Alert>
+              </div>
+            ) : (
               <>
-                <div className="flex justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold">ETH wallet</h2>
-                    <div className="text-xs">{walletAddress}</div>
-                  </div>
-                  <Button variant="outline" onClick={() => setEditingWalletPayoutMethod(true)}>
-                    Edit
-                  </Button>
-                  <WalletAddressModal
-                    open={editingWalletPayoutMethod}
-                    value={walletAddress}
-                    onClose={() => setEditingWalletPayoutMethod(false)}
-                    onComplete={setWalletAddress}
-                  />
-                </div>
-                <Separator />
-              </>
-            ) : null}
+                {showWalletPayoutMethod ? (
+                  <>
+                    <div className="flex justify-between">
+                      <div>
+                        <h2 className="text-xl font-bold">ETH wallet</h2>
+                        <div className="text-xs">{form.watch("wallet_address")}</div>
+                      </div>
+                      <Button variant="outline" onClick={() => setEditingWalletPayoutMethod(true)}>
+                        Edit
+                      </Button>
+                      <WalletAddressModal
+                        open={editingWalletPayoutMethod}
+                        value={form.watch("wallet_address") || ""}
+                        onClose={() => setEditingWalletPayoutMethod(false)}
+                        onComplete={(address) => form.setValue("wallet_address", address)}
+                      />
+                    </div>
+                    <Separator />
+                  </>
+                ) : null}
 
-            {bankAccounts.map((bankAccount, index) => (
-              <Fragment key={bankAccount.id}>
-                <div className="flex justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold">{bankAccount.currency} bank account</h2>
-                    <div className="text-xs">Ending in {bankAccount.last_four_digits}</div>
-                    {bankAccounts.length > 1 && bankAccountUsage(bankAccount)}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    {bankAccounts.length > 1 ? (
-                      <>
-                        {bankAccount.id !== bankAccountForInvoices && (
-                          <MutationButton
-                            idleVariant="outline"
-                            mutation={useBankAccountMutation}
-                            param={{ bankAccountId: bankAccount.id, useFor: "invoices" as const }}
-                            loadingText={
-                              useBankAccountMutation.variables?.bankAccountId === bankAccount.id
-                                ? "Updating..."
-                                : undefined
-                            }
-                          >
-                            Use for invoices
-                          </MutationButton>
+                {form.watch("bank_accounts").map((bankAccount, index) => (
+                  <Fragment key={bankAccount.id}>
+                    <div className="flex justify-between">
+                      <div>
+                        <h2 className="text-xl font-bold">{bankAccount.currency} bank account</h2>
+                        <div className="text-xs">Ending in {bankAccount.last_four_digits}</div>
+                        {form.watch("bank_accounts").length > 1 && bankAccountUsage(bankAccount)}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        {form.watch("bank_accounts").length > 1 ? (
+                          <>
+                            {bankAccount.id !== bankAccountForInvoices && (
+                              <MutationButton
+                                idleVariant="outline"
+                                mutation={useBankAccountMutation}
+                                param={{ bankAccountId: bankAccount.id, useFor: "invoices" as const }}
+                                loadingText={
+                                  useBankAccountMutation.variables?.bankAccountId === bankAccount.id
+                                    ? "Updating..."
+                                    : undefined
+                                }
+                              >
+                                Use for invoices
+                              </MutationButton>
+                            )}
+
+                            {bankAccount.id !== bankAccountForDividends && user.roles.investor ? (
+                              <MutationButton
+                                idleVariant="outline"
+                                mutation={useBankAccountMutation}
+                                param={{ bankAccountId: bankAccount.id, useFor: "dividends" as const }}
+                                loadingText={
+                                  useBankAccountMutation.variables?.bankAccountId === bankAccount.id
+                                    ? "Updating..."
+                                    : undefined
+                                }
+                              >
+                                Use for dividends
+                              </MutationButton>
+                            ) : null}
+                          </>
+                        ) : (
+                          <>
+                            <Button variant="outline" onClick={() => setEditingBankAccount(bankAccount)}>
+                              Edit
+                            </Button>
+                            {editingBankAccount ? (
+                              <BankAccountModal
+                                open={!!editingBankAccount}
+                                billingDetails={data}
+                                bankAccount={editingBankAccount}
+                                onClose={() => setEditingBankAccount(null)}
+                                onComplete={(result) => {
+                                  const bankAccounts = form.getValues("bank_accounts");
+                                  const index = bankAccounts.findIndex((ba) => ba.id === result.id);
+                                  if (index !== -1) {
+                                    bankAccounts[index] = result;
+                                    form.setValue("bank_accounts", bankAccounts);
+                                  }
+                                  setEditingBankAccount(null);
+                                }}
+                              />
+                            ) : null}
+                          </>
                         )}
+                      </div>
+                    </div>
+                    {index !== form.watch("bank_accounts").length - 1 && <Separator />}
+                  </Fragment>
+                ))}
 
-                        {bankAccount.id !== bankAccountForDividends && user.roles.investor ? (
-                          <MutationButton
-                            idleVariant="outline"
-                            mutation={useBankAccountMutation}
-                            param={{ bankAccountId: bankAccount.id, useFor: "dividends" as const }}
-                            loadingText={
-                              useBankAccountMutation.variables?.bankAccountId === bankAccount.id
-                                ? "Updating..."
-                                : undefined
-                            }
-                          >
-                            Use for dividends
-                          </MutationButton>
-                        ) : null}
-                      </>
-                    ) : (
-                      <>
-                        <Button variant="outline" onClick={() => setEditingBankAccount(bankAccount)}>
-                          Edit
-                        </Button>
-                        {editingBankAccount ? (
-                          <BankAccountModal
-                            open={!!editingBankAccount}
-                            billingDetails={data}
-                            bankAccount={editingBankAccount}
-                            onClose={() => setEditingBankAccount(null)}
-                            onComplete={(result) => {
-                              Object.assign(editingBankAccount, result);
-                              setEditingBankAccount(null);
-                            }}
-                          />
-                        ) : null}
-                      </>
-                    )}
-                  </div>
-                </div>
-                {index !== bankAccounts.length - 1 && <Separator />}
-              </Fragment>
-            ))}
-
-            {user.roles.investor ? (
-              <>
-                <Separator />
-                <div>
-                  {addingBankAccount ? (
-                    <BankAccountModal
-                      open={addingBankAccount}
-                      billingDetails={data}
-                      onClose={() => setAddingBankAccount(false)}
-                      onComplete={(result) => {
-                        setBankAccounts((prev) => [...prev, result]);
-                        setAddingBankAccount(false);
-                      }}
-                    />
-                  ) : null}
-                  <Button onClick={() => setAddingBankAccount(true)}>Add bank account</Button>
-                </div>
+                {user.roles.investor ? (
+                  <>
+                    <Separator />
+                    <div>
+                      {addingBankAccount ? (
+                        <BankAccountModal
+                          open={addingBankAccount}
+                          billingDetails={data}
+                          onClose={() => setAddingBankAccount(false)}
+                          onComplete={(result) => {
+                            form.setValue("bank_accounts", [...form.getValues("bank_accounts"), result]);
+                            setAddingBankAccount(false);
+                          }}
+                        />
+                      ) : null}
+                      <Button onClick={() => setAddingBankAccount(true)}>Add bank account</Button>
+                    </div>
+                  </>
+                ) : null}
               </>
-            ) : null}
-          </>
-        )}
-      </CardContent>
-    </FormSection>
+            )}
+          </CardContent>
+        </Card>
+      </form>
+    </Form>
   );
 };
 

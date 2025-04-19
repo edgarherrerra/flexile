@@ -6,14 +6,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { optionGrantTypeDisplayNames, relationshipDisplayNames, vestingTriggerDisplayNames } from "@/app/equity/grants";
-import FormSection from "@/components/FormSection";
 import Input from "@/components/Input";
 import MainLayout from "@/components/layouts/Main";
 import MutationButton from "@/components/MutationButton";
 import NumberInput from "@/components/NumberInput";
 import Select from "@/components/Select";
 import { Button } from "@/components/ui/button";
-import { CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Form } from "@/components/ui/form";
 import { useCurrentCompany } from "@/global";
 import { trpc } from "@/trpc/client";
 import { assertDefined } from "@/utils/assert";
@@ -455,234 +455,265 @@ export default function NewEquityGrant() {
         </Button>
       }
     >
-      <FormSection title="Grant details">
-        <CardContent className="grid gap-4">
-          <fieldset>
-            <Select
-              label="Recipient"
-              options={recipientOptions}
-              value={recipientId}
-              placeholder="Select recipient"
-              onChange={setRecipientId}
-              ref={recipientRef}
-              {...invalidFieldAttrs("contractor", errorInfo)}
-            />
-          </fieldset>
-          <fieldset>
-            <Select
-              label="Option pool"
-              options={optionPoolOptions}
-              value={optionPoolId}
-              placeholder="Select option pool"
-              onChange={setOptionPoolId}
-              ref={optionPoolRef}
-              {...invalidFieldAttrs(
-                "option_pool",
-                errorInfo,
-                optionPool
-                  ? `Available shares in this option pool: ${optionPool.availableShares.toLocaleString()}`
-                  : undefined,
-              )}
-            />
-          </fieldset>
-          <fieldset>
-            <NumberInput
-              label="Number of options"
-              value={numberOfShares}
-              placeholder="0"
-              onChange={setNumberOfShares}
-              ref={numberOfSharesRef}
-              {...invalidFieldAttrs("number_of_shares", errorInfo)}
-            />
-          </fieldset>
-          <fieldset>
-            <Select
-              label="Relationship to company"
-              options={Object.entries(relationshipDisplayNames).map(([key, value]) => ({ label: value, value: key }))}
-              value={issueDateRelationship}
-              placeholder="Select relationship"
-              onChange={(v) => setIssueDateRelationship(isLiteralValue(v, relationshipDisplayNames) ? v : undefined)}
-              ref={relationshipRef}
-              {...invalidFieldAttrs("issue_date_relationship", errorInfo)}
-            />
-          </fieldset>
-          <fieldset>
-            <Select
-              label="Grant type"
-              options={Object.entries(optionGrantTypeDisplayNames).map(([key, value]) => ({
-                label: value,
-                value: key,
-              }))}
-              value={grantType}
-              onChange={(v) => isLiteralValue(v, optionGrantTypeDisplayNames) && setGrantType(v)}
-              ref={grantTypeRef}
-              {...invalidFieldAttrs("option_grant_type", errorInfo)}
-            />
-          </fieldset>
-          <fieldset>
-            <NumberInput
-              label="Expiry"
-              value={expiryInMonths}
-              placeholder="0"
-              onChange={setExpiryInMonths}
-              suffix="months"
-              ref={expiryRef}
-              {...invalidFieldAttrs(
-                "expires_at",
-                errorInfo,
-                "If not exercised, options will expire after this period.",
-              )}
-            />
-          </fieldset>
-        </CardContent>
-      </FormSection>
-      <FormSection title="Vesting details">
-        <CardContent className="grid gap-4">
-          <fieldset>
-            <Select
-              label="Shares will vest"
-              options={Object.entries(vestingTriggerDisplayNames).map(([key, value]) => ({ label: value, value: key }))}
-              value={vestingTrigger}
-              placeholder="Select an option"
-              onChange={(v) => isLiteralValue(v, vestingTriggerDisplayNames) && setVestingTrigger(v)}
-              ref={vestingTriggerRef}
-              {...invalidFieldAttrs("vesting_trigger", errorInfo)}
-            />
-          </fieldset>
-          {vestingTrigger === "scheduled" ? (
-            <>
+      <Form>
+        <form className="grid gap-x-5 gap-y-3 md:grid-cols-[25%_1fr]">
+          <hgroup>
+            <h2 className="text-xl font-bold">Grant details</h2>
+          </hgroup>
+          <Card>
+            <CardContent className="grid gap-4">
               <fieldset>
                 <Select
-                  label="Vesting schedule"
-                  options={vestingScheduleOptions}
-                  value={vestingScheduleId}
-                  placeholder="Select a vesting schedule"
-                  onChange={setVestingScheduleId}
-                  ref={vestingScheduleRef}
-                  {...invalidFieldAttrs("vesting_schedule_id", errorInfo)}
+                  label="Recipient"
+                  options={recipientOptions}
+                  value={recipientId}
+                  placeholder="Select recipient"
+                  onChange={setRecipientId}
+                  ref={recipientRef}
+                  {...invalidFieldAttrs("contractor", errorInfo)}
                 />
               </fieldset>
               <fieldset>
-                <Input
-                  label="Vesting commencement date"
-                  type="date"
-                  value={vestingCommencementDate}
-                  onChange={setVestingCommencementDate}
-                  ref={vestingCommencementRef}
-                  {...invalidFieldAttrs("vesting_commencement_date", errorInfo)}
+                <Select
+                  label="Option pool"
+                  options={optionPoolOptions}
+                  value={optionPoolId}
+                  placeholder="Select option pool"
+                  onChange={setOptionPoolId}
+                  ref={optionPoolRef}
+                  {...invalidFieldAttrs(
+                    "option_pool",
+                    errorInfo,
+                    optionPool
+                      ? `Available shares in this option pool: ${optionPool.availableShares.toLocaleString()}`
+                      : undefined,
+                  )}
                 />
               </fieldset>
-              {vestingScheduleId === "custom" ? (
+              <fieldset>
+                <NumberInput
+                  label="Number of options"
+                  value={numberOfShares}
+                  placeholder="0"
+                  onChange={setNumberOfShares}
+                  ref={numberOfSharesRef}
+                  {...invalidFieldAttrs("number_of_shares", errorInfo)}
+                />
+              </fieldset>
+              <fieldset>
+                <Select
+                  label="Relationship to company"
+                  options={Object.entries(relationshipDisplayNames).map(([key, value]) => ({
+                    label: value,
+                    value: key,
+                  }))}
+                  value={issueDateRelationship}
+                  placeholder="Select relationship"
+                  onChange={(v) =>
+                    setIssueDateRelationship(isLiteralValue(v, relationshipDisplayNames) ? v : undefined)
+                  }
+                  ref={relationshipRef}
+                  {...invalidFieldAttrs("issue_date_relationship", errorInfo)}
+                />
+              </fieldset>
+              <fieldset>
+                <Select
+                  label="Grant type"
+                  options={Object.entries(optionGrantTypeDisplayNames).map(([key, value]) => ({
+                    label: value,
+                    value: key,
+                  }))}
+                  value={grantType}
+                  onChange={(v) => isLiteralValue(v, optionGrantTypeDisplayNames) && setGrantType(v)}
+                  ref={grantTypeRef}
+                  {...invalidFieldAttrs("option_grant_type", errorInfo)}
+                />
+              </fieldset>
+              <fieldset>
+                <NumberInput
+                  label="Expiry"
+                  value={expiryInMonths}
+                  placeholder="0"
+                  onChange={setExpiryInMonths}
+                  suffix="months"
+                  ref={expiryRef}
+                  {...invalidFieldAttrs(
+                    "expires_at",
+                    errorInfo,
+                    "If not exercised, options will expire after this period.",
+                  )}
+                />
+              </fieldset>
+            </CardContent>
+          </Card>
+        </form>
+      </Form>
+
+      <Form {...form}>
+        <form className="grid gap-x-5 gap-y-3 md:grid-cols-[25%_1fr]">
+          <hgroup>
+            <h2 className="text-xl font-bold">Vesting details</h2>
+          </hgroup>
+          <Card>
+            <CardContent className="grid gap-4">
+              <fieldset>
+                <Select
+                  label="Shares will vest"
+                  options={Object.entries(vestingTriggerDisplayNames).map(([key, value]) => ({
+                    label: value,
+                    value: key,
+                  }))}
+                  value={vestingTrigger}
+                  placeholder="Select an option"
+                  onChange={(v) => isLiteralValue(v, vestingTriggerDisplayNames) && setVestingTrigger(v)}
+                  ref={vestingTriggerRef}
+                  {...invalidFieldAttrs("vesting_trigger", errorInfo)}
+                />
+              </fieldset>
+              {vestingTrigger === "scheduled" ? (
                 <>
                   <fieldset>
-                    <NumberInput
-                      label="Total vesting duration"
-                      value={totalVestingDurationMonths}
-                      placeholder="0"
-                      onChange={setTotalVestingDurationMonths}
-                      suffix="months"
-                      ref={totalVestingDurationRef}
-                      {...invalidFieldAttrs("total_vesting_duration_months", errorInfo)}
-                    />
-                  </fieldset>
-                  <fieldset>
-                    <NumberInput
-                      label="Cliff period"
-                      value={cliffDurationMonths}
-                      placeholder="0"
-                      onChange={setCliffDurationMonths}
-                      suffix="months"
-                      ref={cliffDurationRef}
-                      {...invalidFieldAttrs("cliff_duration_months", errorInfo)}
-                    />
-                  </fieldset>
-                  <fieldset>
                     <Select
-                      label="Vesting frequency"
-                      options={vestingFrequencyOptions}
-                      value={vestingFrequencyMonths}
-                      placeholder="Select vesting frequency"
-                      onChange={setVestingFrequencyMonths}
-                      ref={vestingFrequencyRef}
-                      {...invalidFieldAttrs("vesting_frequency_months", errorInfo)}
+                      label="Vesting schedule"
+                      options={vestingScheduleOptions}
+                      value={vestingScheduleId}
+                      placeholder="Select a vesting schedule"
+                      onChange={setVestingScheduleId}
+                      ref={vestingScheduleRef}
+                      {...invalidFieldAttrs("vesting_schedule_id", errorInfo)}
                     />
                   </fieldset>
+                  <fieldset>
+                    <Input
+                      label="Vesting commencement date"
+                      type="date"
+                      value={vestingCommencementDate}
+                      onChange={setVestingCommencementDate}
+                      ref={vestingCommencementRef}
+                      {...invalidFieldAttrs("vesting_commencement_date", errorInfo)}
+                    />
+                  </fieldset>
+                  {vestingScheduleId === "custom" ? (
+                    <>
+                      <fieldset>
+                        <NumberInput
+                          label="Total vesting duration"
+                          value={totalVestingDurationMonths}
+                          placeholder="0"
+                          onChange={setTotalVestingDurationMonths}
+                          suffix="months"
+                          ref={totalVestingDurationRef}
+                          {...invalidFieldAttrs("total_vesting_duration_months", errorInfo)}
+                        />
+                      </fieldset>
+                      <fieldset>
+                        <NumberInput
+                          label="Cliff period"
+                          value={cliffDurationMonths}
+                          placeholder="0"
+                          onChange={setCliffDurationMonths}
+                          suffix="months"
+                          ref={cliffDurationRef}
+                          {...invalidFieldAttrs("cliff_duration_months", errorInfo)}
+                        />
+                      </fieldset>
+                      <fieldset>
+                        <Select
+                          label="Vesting frequency"
+                          options={vestingFrequencyOptions}
+                          value={vestingFrequencyMonths}
+                          placeholder="Select vesting frequency"
+                          onChange={setVestingFrequencyMonths}
+                          ref={vestingFrequencyRef}
+                          {...invalidFieldAttrs("vesting_frequency_months", errorInfo)}
+                        />
+                      </fieldset>
+                    </>
+                  ) : null}
                 </>
               ) : null}
-            </>
-          ) : null}
-        </CardContent>
-      </FormSection>
-      <FormSection title="Post-termination exercise periods">
-        <CardContent className="grid gap-4">
-          <fieldset>
-            <NumberInput
-              label="Voluntary termination exercise period"
-              value={voluntaryTerminationExercisePeriodInMonths}
-              placeholder="0"
-              onChange={setVoluntaryTerminationExercisePeriodInMonths}
-              suffix="months"
-              ref={voluntaryTerminationRef}
-              {...invalidFieldAttrs("voluntary_termination_exercise_months", errorInfo)}
-            />
-          </fieldset>
-          <fieldset>
-            <NumberInput
-              label="Involuntary termination exercise period"
-              value={involuntaryTerminationExercisePeriodInMonths}
-              placeholder="0"
-              onChange={setInvoluntaryTerminationExercisePeriodInMonths}
-              suffix="months"
-              ref={involuntaryTerminationRef}
-              {...invalidFieldAttrs("involuntary_termination_exercise_months", errorInfo)}
-            />
-          </fieldset>
-          <fieldset>
-            <NumberInput
-              label="Termination with cause exercise period"
-              value={terminationWithCauseExercisePeriodInMonths}
-              placeholder="0"
-              onChange={setTerminationWithCauseExercisePeriodInMonths}
-              suffix="months"
-              ref={terminationWithCauseRef}
-              {...invalidFieldAttrs("termination_with_cause_exercise_months", errorInfo)}
-            />
-          </fieldset>
-          <fieldset>
-            <NumberInput
-              label="Death exercise period"
-              value={deathExercisePeriodInMonths}
-              placeholder="0"
-              onChange={setDeathExercisePeriodInMonths}
-              suffix="months"
-              ref={deathExerciseRef}
-              {...invalidFieldAttrs("death_exercise_months", errorInfo)}
-            />
-          </fieldset>
-          <fieldset>
-            <NumberInput
-              label="Disability exercise period"
-              value={disabilityExercisePeriodInMonths}
-              placeholder="0"
-              onChange={setDisabilityExercisePeriodInMonths}
-              suffix="months"
-              ref={disabilityExerciseRef}
-              {...invalidFieldAttrs("disability_exercise_months", errorInfo)}
-            />
-          </fieldset>
-          <fieldset>
-            <NumberInput
-              label="Retirement exercise period"
-              value={retirementExercisePeriodInMonths}
-              placeholder="0"
-              onChange={setRetirementExercisePeriodInMonths}
-              suffix="months"
-              ref={retirementExerciseRef}
-              {...invalidFieldAttrs("retirement_exercise_months", errorInfo)}
-            />
-          </fieldset>
-        </CardContent>
-      </FormSection>
+            </CardContent>
+          </Card>
+        </form>
+      </Form>
+
+      <Form {...form}>
+        <form className="grid gap-x-5 gap-y-3 md:grid-cols-[25%_1fr]">
+          <hgroup>
+            <h2 className="text-xl font-bold">Post-termination exercise periods</h2>
+          </hgroup>
+          <Card>
+            <CardContent className="grid gap-4">
+              <fieldset>
+                <NumberInput
+                  label="Voluntary termination exercise period"
+                  value={voluntaryTerminationExercisePeriodInMonths}
+                  placeholder="0"
+                  onChange={setVoluntaryTerminationExercisePeriodInMonths}
+                  suffix="months"
+                  ref={voluntaryTerminationRef}
+                  {...invalidFieldAttrs("voluntary_termination_exercise_months", errorInfo)}
+                />
+              </fieldset>
+              <fieldset>
+                <NumberInput
+                  label="Involuntary termination exercise period"
+                  value={involuntaryTerminationExercisePeriodInMonths}
+                  placeholder="0"
+                  onChange={setInvoluntaryTerminationExercisePeriodInMonths}
+                  suffix="months"
+                  ref={involuntaryTerminationRef}
+                  {...invalidFieldAttrs("involuntary_termination_exercise_months", errorInfo)}
+                />
+              </fieldset>
+              <fieldset>
+                <NumberInput
+                  label="Termination with cause exercise period"
+                  value={terminationWithCauseExercisePeriodInMonths}
+                  placeholder="0"
+                  onChange={setTerminationWithCauseExercisePeriodInMonths}
+                  suffix="months"
+                  ref={terminationWithCauseRef}
+                  {...invalidFieldAttrs("termination_with_cause_exercise_months", errorInfo)}
+                />
+              </fieldset>
+              <fieldset>
+                <NumberInput
+                  label="Death exercise period"
+                  value={deathExercisePeriodInMonths}
+                  placeholder="0"
+                  onChange={setDeathExercisePeriodInMonths}
+                  suffix="months"
+                  ref={deathExerciseRef}
+                  {...invalidFieldAttrs("death_exercise_months", errorInfo)}
+                />
+              </fieldset>
+              <fieldset>
+                <NumberInput
+                  label="Disability exercise period"
+                  value={disabilityExercisePeriodInMonths}
+                  placeholder="0"
+                  onChange={setDisabilityExercisePeriodInMonths}
+                  suffix="months"
+                  ref={disabilityExerciseRef}
+                  {...invalidFieldAttrs("disability_exercise_months", errorInfo)}
+                />
+              </fieldset>
+              <fieldset>
+                <NumberInput
+                  label="Retirement exercise period"
+                  value={retirementExercisePeriodInMonths}
+                  placeholder="0"
+                  onChange={setRetirementExercisePeriodInMonths}
+                  suffix="months"
+                  ref={retirementExerciseRef}
+                  {...invalidFieldAttrs("retirement_exercise_months", errorInfo)}
+                />
+              </fieldset>
+            </CardContent>
+          </Card>
+        </form>
+      </Form>
       <div className="grid gap-x-5 gap-y-3 md:grid-cols-[25%_1fr]">
         <div></div>
         <div className="grid gap-2">

@@ -5,9 +5,9 @@ import { Set } from "immutable";
 import { useEffect, useRef, useState } from "react";
 import ComboBox from "@/components/ComboBox";
 import DecimalInput from "@/components/DecimalInput";
-import FormSection from "@/components/FormSection";
 import MutationButton from "@/components/MutationButton";
-import { CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Form } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { useCurrentCompany } from "@/global";
 import { MAX_FILES_PER_CAP_TABLE_UPLOAD } from "@/models";
@@ -37,24 +37,32 @@ const BoardMembersSection = () => {
   });
 
   return (
-    <FormSection title="Board members" description="Select company administrators who are board members.">
-      <CardContent>
-        <div className="grid gap-4">
-          Choose board members from your existing administrators.
-          <ComboBox
-            options={administrators.map((admin) => ({ value: admin.id, label: admin.name }))}
-            value={boardMemberIds.toArray()}
-            onChange={(value) => setBoardMemberIds(Set(value))}
-            multiple
-          />
-        </div>
-      </CardContent>
-      <CardFooter>
-        <MutationButton mutation={updateMutation} disabled={updateMutation.isPending} loadingText="Saving...">
-          Save board members
-        </MutationButton>
-      </CardFooter>
-    </FormSection>
+    <Form>
+      <form className="grid gap-x-5 gap-y-3 md:grid-cols-[25%_1fr]">
+        <hgroup>
+          <h2 className="text-xl font-bold">Board members</h2>
+          <p className="text-gray-400">Select company administrators who are board members.</p>
+        </hgroup>
+        <Card>
+          <CardContent>
+            <div className="grid gap-4">
+              Choose board members from your existing administrators.
+              <ComboBox
+                options={administrators.map((admin) => ({ value: admin.id, label: admin.name }))}
+                value={boardMemberIds.toArray()}
+                onChange={(value) => setBoardMemberIds(Set(value))}
+                multiple
+              />
+            </div>
+          </CardContent>
+          <CardFooter>
+            <MutationButton mutation={updateMutation} disabled={updateMutation.isPending} loadingText="Saving...">
+              Save board members
+            </MutationButton>
+          </CardFooter>
+        </Card>
+      </form>
+    </Form>
   );
 };
 
@@ -159,114 +167,132 @@ export default function Equity() {
 
   return (
     <>
-      <FormSection
-        title="Equity"
-        description="These details will be used for equity-related calculations and reporting."
-      >
-        <CardContent>
-          <div className="grid gap-4">
-            <DecimalInput
-              value={sharePriceInUsd ?? null}
-              onChange={setSharePriceInUsd}
-              label="Current share price (USD)"
-              invalid={errors.has("sharePriceInUsd")}
-              prefix="$"
-              minimumFractionDigits={2}
-            />
-            <DecimalInput
-              value={fmvPerShareInUsd ?? null}
-              onChange={setFmvPerShareInUsd}
-              label="Current 409A valuation (USD per share)"
-              invalid={errors.has("fmvPerShareInUsd")}
-              prefix="$"
-              minimumFractionDigits={2}
-            />
-            <DecimalInput
-              value={conversionSharePriceUsd ?? null}
-              onChange={setConversionSharePriceUsd}
-              label="Conversion share price (USD)"
-              invalid={errors.has("conversionSharePriceUsd")}
-              prefix="$"
-              minimumFractionDigits={2}
-            />
-          </div>
-        </CardContent>
-        <CardFooter>
-          <MutationButton mutation={saveMutation} loadingText="Saving..." successText="Changes saved">
-            Save changes
-          </MutationButton>
-        </CardFooter>
-      </FormSection>
+      <Form>
+        <form className="grid gap-x-5 gap-y-3 md:grid-cols-[25%_1fr]" onSubmit={(e) => void submit(e)}>
+          <hgroup>
+            <h2 className="text-xl font-bold">Equity</h2>
+            <p className="text-gray-400">These details will be used for equity-related calculations and reporting.</p>
+          </hgroup>
+          <Card>
+            <CardContent>
+              <div className="grid gap-4">
+                <DecimalInput
+                  value={sharePriceInUsd ?? null}
+                  onChange={setSharePriceInUsd}
+                  label="Current share price (USD)"
+                  invalid={errors.has("sharePriceInUsd")}
+                  prefix="$"
+                  minimumFractionDigits={2}
+                />
+                <DecimalInput
+                  value={fmvPerShareInUsd ?? null}
+                  onChange={setFmvPerShareInUsd}
+                  label="Current 409A valuation (USD per share)"
+                  invalid={errors.has("fmvPerShareInUsd")}
+                  prefix="$"
+                  minimumFractionDigits={2}
+                />
+                <DecimalInput
+                  value={conversionSharePriceUsd ?? null}
+                  onChange={setConversionSharePriceUsd}
+                  label="Conversion share price (USD)"
+                  invalid={errors.has("conversionSharePriceUsd")}
+                  prefix="$"
+                  minimumFractionDigits={2}
+                />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <MutationButton mutation={saveMutation} loadingText="Saving..." successText="Changes saved">
+                Save changes
+              </MutationButton>
+            </CardFooter>
+          </Card>
+        </form>
+      </Form>
 
       <BoardMembersSection />
 
       {hasInProgressUpload ? (
-        <FormSection
-          title="Import equity documents"
-          description="We are currently processing your equity documents. Please check back later."
-        >
-          <CardContent>
-            <div className="rounded-md border border-blue-200 bg-blue-50 p-4">
-              <p className="text-blue-700">
-                Your equity documents are being imported. We will notify you when it is complete.
-              </p>
-            </div>
-          </CardContent>
-        </FormSection>
-      ) : canCreateCapTableUpload ? (
-        <FormSection
-          title="Import equity documents"
-          description="Upload your cap table, ESOP, or related documents to view your cap table in Flexile or pay contractors with equity."
-        >
-          <CardContent>
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="cap-table-files">Upload files (maximum {MAX_FILES_PER_CAP_TABLE_UPLOAD} files)</Label>
-                <input
-                  ref={fileInputRef}
-                  id="cap-table-files"
-                  type="file"
-                  multiple
-                  disabled={uploadMutation.isPending}
-                  onChange={(e) => {
-                    const selectedFiles = Array.from(e.target.files || []);
-                    if (selectedFiles.length > MAX_FILES_PER_CAP_TABLE_UPLOAD) {
-                      if (fileInputRef.current) {
-                        fileInputRef.current.value = "";
-                      }
-                      setFiles([]);
-                      setFileError(`You can only upload up to ${MAX_FILES_PER_CAP_TABLE_UPLOAD} files`);
-                      return;
-                    }
-                    setFileError(null);
-                    setFiles(selectedFiles);
-                  }}
-                />
-                {fileError ? <small className="text-red">{fileError}</small> : null}
+        <div className="grid gap-x-5 gap-y-3 md:grid-cols-[25%_1fr]">
+          <hgroup>
+            <h2 className="text-xl font-bold">Import equity documents</h2>
+            <p className="text-gray-400">We are currently processing your equity documents. Please check back later.</p>
+          </hgroup>
+          <Card>
+            <CardContent>
+              <div className="rounded-md border border-blue-200 bg-blue-50 p-4">
+                <p className="text-blue-700">
+                  Your equity documents are being imported. We will notify you when it is complete.
+                </p>
               </div>
-              {files.length > 0 && (
-                <div className="grid gap-2">
-                  <h3 className="font-medium">Selected files:</h3>
-                  <ul className="list-inside list-disc">
-                    {files.map((file) => (
-                      <li key={file.name}>{file.name}</li>
-                    ))}
-                  </ul>
+            </CardContent>
+          </Card>
+        </div>
+      ) : canCreateCapTableUpload ? (
+        <Form {...form}>
+          <form className="grid gap-x-5 gap-y-3 md:grid-cols-[25%_1fr]" onSubmit={(e) => void submit(e)}>
+            <hgroup>
+              <h2 className="text-xl font-bold">Import equity documents</h2>
+              <p className="text-gray-400">
+                Upload your cap table, ESOP, or related documents to view your cap table in Flexile or pay contractors
+                with equity.
+              </p>
+            </hgroup>
+            <Card>
+              <CardContent>
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="cap-table-files">
+                      Upload files (maximum {MAX_FILES_PER_CAP_TABLE_UPLOAD} files)
+                    </Label>
+                    <input
+                      ref={fileInputRef}
+                      id="cap-table-files"
+                      type="file"
+                      multiple
+                      disabled={uploadMutation.isPending}
+                      onChange={(e) => {
+                        const selectedFiles = Array.from(e.target.files || []);
+                        if (selectedFiles.length > MAX_FILES_PER_CAP_TABLE_UPLOAD) {
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = "";
+                          }
+                          setFiles([]);
+                          setFileError(`You can only upload up to ${MAX_FILES_PER_CAP_TABLE_UPLOAD} files`);
+                          return;
+                        }
+                        setFileError(null);
+                        setFiles(selectedFiles);
+                      }}
+                    />
+                    {fileError ? <small className="text-red">{fileError}</small> : null}
+                  </div>
+                  {files.length > 0 && (
+                    <div className="grid gap-2">
+                      <h3 className="font-medium">Selected files:</h3>
+                      <ul className="list-inside list-disc">
+                        {files.map((file) => (
+                          <li key={file.name}>{file.name}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </CardContent>
-          <CardFooter>
-            <MutationButton
-              mutation={uploadMutation}
-              disabled={files.length === 0 || uploadMutation.isPending}
-              loadingText="Uploading..."
-              successText="Files uploaded"
-            >
-              Upload files
-            </MutationButton>
-          </CardFooter>
-        </FormSection>
+              </CardContent>
+              <CardFooter>
+                <MutationButton
+                  mutation={uploadMutation}
+                  disabled={files.length === 0 || uploadMutation.isPending}
+                  loadingText="Uploading..."
+                  successText="Files uploaded"
+                >
+                  Upload files
+                </MutationButton>
+              </CardFooter>
+            </Card>
+          </form>
+        </Form>
       ) : null}
     </>
   );

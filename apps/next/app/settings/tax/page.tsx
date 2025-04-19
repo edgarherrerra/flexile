@@ -3,21 +3,23 @@
 import { ExclamationTriangleIcon } from "@heroicons/react/20/solid";
 import { InformationCircleIcon } from "@heroicons/react/24/outline";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Map } from "immutable";
 import { iso31662 } from "iso-3166";
 import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 import LegalCertificationModal from "@/app/onboarding/LegalCertificationModal";
-import FormSection from "@/components/FormSection";
 import Input from "@/components/Input";
 import RadioButtons from "@/components/RadioButtons";
 import Select from "@/components/Select";
 import Status from "@/components/Status";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { BusinessType, TaxClassification } from "@/db/enums";
 import { useCurrentUser } from "@/global";
 import { countries } from "@/models/constants";
@@ -61,6 +63,12 @@ export default function TaxPage() {
       return dataSchema.parse(await response.json());
     },
   });
+
+  const form = useForm<Data>({
+    resolver: zodResolver(dataSchema),
+    defaultValues: data,
+  });
+
   const [formData, setFormData] = useState(data);
   const [errors, setErrors] = useState(Map<string, string>());
   const countryCodePrefix = `${formData.country_code}-`;
@@ -83,7 +91,7 @@ export default function TaxPage() {
     setFormData(data);
     setIsTaxInfoConfirmed(data.is_tax_information_confirmed);
     setTaxIdStatus(data.tax_id_status);
-  }, [data]);
+  }, [data, form]);
 
   const isForeign = useMemo(
     () => formData.citizenship_country_code !== "US" && formData.country_code !== "US",
@@ -186,219 +194,342 @@ export default function TaxPage() {
 
   return (
     <SettingsLayout>
-      <FormSection
-        title="Tax information"
-        description={`These details will be included in your ${
-          user.roles.worker ? "invoices and " : ""
-        }applicable tax forms.`}
-      >
-        <CardContent className="grid gap-4">
-          {!isTaxInfoConfirmed && (
-            <Alert variant="destructive">
-              <ExclamationTriangleIcon />
-              <AlertDescription>
-                Confirm your tax information to avoid delays on your payments or additional tax withholding.
-              </AlertDescription>
-            </Alert>
-          )}
+      <Form {...form}>
+        <form className="grid gap-x-5 gap-y-3 md:grid-cols-[25%_1fr]" onSubmit={form.handleSubmit(handleSave)}>
+          <hgroup>
+            <h2 className="text-xl font-bold">Tax information</h2>
+            <p className="text-gray-400">
+              {`These details will be included in your ${user.roles.worker ? "invoices and " : ""}applicable tax forms.`}
+            </p>
+          </hgroup>
+          <Card>
+            <CardContent className="grid gap-4">
+              {!isTaxInfoConfirmed && (
+                <Alert variant="destructive">
+                  <ExclamationTriangleIcon />
+                  <AlertDescription>
+                    Confirm your tax information to avoid delays on your payments or additional tax withholding.
+                  </AlertDescription>
+                </Alert>
+              )}
 
-          {formData.tax_id_status === "invalid" && (
-            <Alert>
-              <InformationCircleIcon />
-              <AlertTitle>Review your tax information</AlertTitle>
-              <AlertDescription>
-                Since there's a mismatch between the legal name and {tinName} you provided and your government records,
-                please note that your payments could experience a tax withholding rate of 24%. If you think this may be
-                due to a typo or recent changes to your name or legal entity, please update your information.
-              </AlertDescription>
-            </Alert>
-          )}
+              {formData.tax_id_status === "invalid" && (
+                <Alert>
+                  <InformationCircleIcon />
+                  <AlertTitle>Review your tax information</AlertTitle>
+                  <AlertDescription>
+                    Since there's a mismatch between the legal name and {tinName} you provided and your government
+                    records, please note that your payments could experience a tax withholding rate of 24%. If you think
+                    this may be due to a typo or recent changes to your name or legal entity, please update your
+                    information.
+                  </AlertDescription>
+                </Alert>
+              )}
 
-          <Input
-            value={formData.legal_name}
-            onChange={(value) => setFormData({ ...formData, legal_name: value })}
-            label="Full legal name (must match your ID)"
-            placeholder="Enter your full legal name"
-            invalid={errors.has("legal_name")}
-            help={errors.get("legal_name")}
-          />
-
-          <Select
-            value={formData.citizenship_country_code}
-            onChange={(value) => setFormData({ ...formData, citizenship_country_code: value })}
-            options={countryOptions}
-            label="Country of citizenship"
-          />
-
-          <RadioButtons
-            value={formData.business_entity ? "business" : "individual"}
-            onChange={(value) => setFormData({ ...formData, business_entity: value === "business" })}
-            label="Type of entity"
-            options={[
-              { label: "Individual", value: "individual" },
-              { label: "Business", value: "business" },
-            ]}
-          />
-
-          {formData.business_entity ? (
-            <div className="grid auto-cols-fr grid-flow-col items-start gap-3">
-              <Input
-                value={formData.business_name ?? ""}
-                onChange={(value) => setFormData({ ...formData, business_name: value })}
-                label="Business legal name"
-                placeholder="Enter business legal name"
-                invalid={errors.has("business_name")}
-                help={errors.get("business_name")}
+              <FormField
+                control={form.control}
+                name="legal_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full legal name (must match your ID)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="Enter your full legal name"
+                        invalid={errors.has("legal_name")}
+                        help={errors.get("legal_name")}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
 
-              {!isForeign ? (
-                <>
-                  <Select
-                    value={formData.business_type?.toString() ?? ""}
-                    onChange={(value) => setFormData({ ...formData, business_type: +value })}
-                    options={[
-                      { label: "C corporation", value: BusinessType.CCorporation.toString() },
-                      { label: "S corporation", value: BusinessType.SCorporation.toString() },
-                      { label: "Partnership", value: BusinessType.Partnership.toString() },
-                      { label: "LLC", value: BusinessType.LLC.toString() },
-                    ]}
-                    label="Type"
-                    placeholder="Select business type"
-                    invalid={errors.has("business_type")}
-                    help={errors.get("business_type")}
+              <FormField
+                control={form.control}
+                name="citizenship_country_code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Country of citizenship</FormLabel>
+                    <FormControl>
+                      <Select {...field} options={countryOptions} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="business_entity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Type of entity</FormLabel>
+                    <FormControl>
+                      <RadioButtons
+                        value={field.value ? "business" : "individual"}
+                        onChange={(value) => field.onChange(value === "business")}
+                        options={[
+                          { label: "Individual", value: "individual" },
+                          { label: "Business", value: "business" },
+                        ]}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {formData.business_entity ? (
+                <div className="grid auto-cols-fr grid-flow-col items-start gap-3">
+                  <FormField
+                    control={form.control}
+                    name="business_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Business legal name</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Enter business legal name"
+                            invalid={errors.has("business_name")}
+                            help={errors.get("business_name")}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
 
-                  {formData.business_type === BusinessType.LLC && (
-                    <Select
-                      value={formData.tax_classification?.toString() || ""}
-                      onChange={(value) => setFormData({ ...formData, tax_classification: +value })}
-                      options={[
-                        { label: "C corporation", value: TaxClassification.CCorporation.toString() },
-                        { label: "S corporation", value: TaxClassification.SCorporation.toString() },
-                        { label: "Partnership", value: TaxClassification.Partnership.toString() },
-                      ]}
-                      label="Tax classification"
-                      placeholder="Select tax classification"
-                      invalid={errors.has("tax_classification")}
-                      help={errors.get("tax_classification")}
-                    />
-                  )}
-                </>
-              ) : null}
-            </div>
-          ) : null}
-
-          <Select
-            value={formData.country_code}
-            onChange={(value) => setFormData({ ...formData, country_code: value })}
-            options={countryOptions}
-            label={`Country of ${formData.business_entity ? "incorporation" : "residence"}`}
-          />
-
-          <div className="grid items-start gap-3 md:grid-cols-2">
-            <Input
-              value={formatUSTaxId(formData.tax_id ?? "")}
-              type={maskTaxId ? "password" : "text"}
-              onChange={(value) => {
-                setFormData({ ...formData, tax_id: normalizedTaxId(value) });
-                setTaxIdChanged(true);
-              }}
-              suffix={
-                <Button
-                  variant="link"
-                  onPointerDown={() => setMaskTaxId(false)}
-                  onPointerUp={() => setMaskTaxId(true)}
-                  onPointerLeave={() => setMaskTaxId(true)}
-                  onTouchStart={() => setMaskTaxId(false)}
-                  onTouchEnd={() => setMaskTaxId(true)}
-                  onTouchCancel={() => setMaskTaxId(true)}
-                >
-                  {maskTaxId ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </Button>
-              }
-              label={
-                <div className="flex justify-between gap-2">
-                  {useMemo(() => (isForeign ? "Foreign tax ID" : `Tax ID (${tinName})`), [isForeign, tinName])}
-                  {!isForeign && formData.tax_id && !taxIdChanged ? (
+                  {!isForeign ? (
                     <>
-                      {taxIdStatus === "verified" && <Status variant="success">VERIFIED</Status>}
-                      {taxIdStatus === "invalid" && <Status variant="critical">INVALID</Status>}
-                      {!taxIdStatus && <Status variant="primary">VERIFYING</Status>}
+                      <FormField
+                        control={form.control}
+                        name="business_type"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Type</FormLabel>
+                            <FormControl>
+                              <Select
+                                {...field}
+                                options={[
+                                  { label: "C corporation", value: BusinessType.CCorporation.toString() },
+                                  { label: "S corporation", value: BusinessType.SCorporation.toString() },
+                                  { label: "Partnership", value: BusinessType.Partnership.toString() },
+                                  { label: "LLC", value: BusinessType.LLC.toString() },
+                                ]}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {formData.business_type === BusinessType.LLC && (
+                        <FormField
+                          control={form.control}
+                          name="tax_classification"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Tax classification</FormLabel>
+                              <FormControl>
+                                <Select
+                                  {...field}
+                                  options={[
+                                    { label: "C corporation", value: TaxClassification.CCorporation.toString() },
+                                    { label: "S corporation", value: TaxClassification.SCorporation.toString() },
+                                    { label: "Partnership", value: TaxClassification.Partnership.toString() },
+                                  ]}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
                     </>
                   ) : null}
                 </div>
-              }
-              placeholder={taxIdPlaceholder}
-              invalid={errors.has("tax_id")}
-              help={errors.get("tax_id")}
-              autoComplete="flexile-tax-id"
-            />
+              ) : null}
 
-            <Input
-              value={formData.birth_date ?? ""}
-              onChange={(value) => setFormData({ ...formData, birth_date: value })}
-              label={`Date of ${formData.business_entity ? "incorporation" : "birth"} (optional)`}
-              type="date"
-            />
-          </div>
+              <FormField
+                control={form.control}
+                name="country_code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{`Country of ${formData.business_entity ? "incorporation" : "residence"}`}</FormLabel>
+                    <FormControl>
+                      <Select {...field} options={countryOptions} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <Input
-            value={formData.street_address}
-            onChange={(value) => setFormData({ ...formData, street_address: value })}
-            label="Residential address (street name, number, apartment)"
-            placeholder="Enter address"
-            invalid={errors.has("street_address")}
-            help={errors.get("street_address")}
-          />
+              <div className="grid items-start gap-3 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="tax_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        <div className="flex justify-between gap-2">
+                          {useMemo(() => (isForeign ? "Foreign tax ID" : `Tax ID (${tinName})`), [isForeign, tinName])}
+                          {!isForeign && formData.tax_id && !taxIdChanged ? (
+                            <>
+                              {taxIdStatus === "verified" && <Status variant="success">VERIFIED</Status>}
+                              {taxIdStatus === "invalid" && <Status variant="critical">INVALID</Status>}
+                              {!taxIdStatus && <Status variant="primary">VERIFYING</Status>}
+                            </>
+                          ) : null}
+                        </div>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type={maskTaxId ? "password" : "text"}
+                          onChange={(value) => {
+                            field.onChange(normalizedTaxId(value));
+                            setTaxIdChanged(true);
+                          }}
+                          suffix={
+                            <Button
+                              variant="link"
+                              onPointerDown={() => setMaskTaxId(false)}
+                              onPointerUp={() => setMaskTaxId(true)}
+                              onPointerLeave={() => setMaskTaxId(true)}
+                              onTouchStart={() => setMaskTaxId(false)}
+                              onTouchEnd={() => setMaskTaxId(true)}
+                              onTouchCancel={() => setMaskTaxId(true)}
+                            >
+                              {maskTaxId ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                            </Button>
+                          }
+                          placeholder={taxIdPlaceholder}
+                          invalid={errors.has("tax_id")}
+                          help={errors.get("tax_id")}
+                          autoComplete="flexile-tax-id"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-          <Input
-            value={formData.city}
-            onChange={(value) => setFormData({ ...formData, city: value })}
-            label="City"
-            placeholder="Enter city"
-            invalid={errors.has("city")}
-            help={errors.get("city")}
-          />
+                <FormField
+                  control={form.control}
+                  name="birth_date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{`Date of ${formData.business_entity ? "incorporation" : "birth"} (optional)`}</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="date" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-          <div className="grid items-start gap-3 md:grid-cols-2">
-            <Select
-              value={formData.state}
-              onChange={(value) => setFormData({ ...formData, state: value })}
-              options={countrySubdivisions.map((entry) => ({
-                value: entry.code.slice(countryCodePrefix.length),
-                label: entry.name,
-              }))}
-              label={stateLabel}
-              invalid={errors.has("state")}
-              disabled={!countrySubdivisions.length}
-              help={errors.get("state")}
-            />
+              <FormField
+                control={form.control}
+                name="street_address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Residential address (street name, number, apartment)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="Enter address"
+                        invalid={errors.has("street_address")}
+                        help={errors.get("street_address")}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <Input
-              value={formData.zip_code}
-              onChange={(value) => setFormData({ ...formData, zip_code: value })}
-              label={zipCodeLabel}
-              placeholder={`Enter ${zipCodeLabel.toLowerCase()}`}
-              invalid={errors.has("zip_code")}
-              help={errors.get("zip_code")}
-            />
-          </div>
-        </CardContent>
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>City</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="Enter city"
+                        invalid={errors.has("city")}
+                        help={errors.get("city")}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-        <CardFooter className="flex-wrap gap-4">
-          <Button disabled={!taxInfoChanged && isTaxInfoConfirmed} onClick={handleSave}>
-            Save changes
-          </Button>
+              <div className="grid items-start gap-3 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{stateLabel}</FormLabel>
+                      <FormControl>
+                        <Select
+                          {...field}
+                          options={countrySubdivisions.map((entry) => ({
+                            value: entry.code.slice(countryCodePrefix.length),
+                            label: entry.name,
+                          }))}
+                          disabled={!countrySubdivisions.length}
+                          invalid={errors.has("state")}
+                          help={errors.get("state")}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-          {user.roles.worker ? (
-            <div>
-              Changes to your tax information may trigger{" "}
-              {formData.contractor_for_companies.length === 1 ? "a new contract" : "new contracts"} with{" "}
-              {formData.contractor_for_companies.join(", ")}
-            </div>
-          ) : null}
-        </CardFooter>
-      </FormSection>
+                <FormField
+                  control={form.control}
+                  name="zip_code"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{zipCodeLabel}</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder={`Enter ${zipCodeLabel.toLowerCase()}`}
+                          invalid={errors.has("zip_code")}
+                          help={errors.get("zip_code")}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </CardContent>
+
+            <CardFooter className="flex-wrap gap-4">
+              <Button type="submit" disabled={!taxInfoChanged && isTaxInfoConfirmed}>
+                Save changes
+              </Button>
+
+              {user.roles.worker ? (
+                <div>
+                  Changes to your tax information may trigger{" "}
+                  {formData.contractor_for_companies.length === 1 ? "a new contract" : "new contracts"} with{" "}
+                  {formData.contractor_for_companies.join(", ")}
+                </div>
+              ) : null}
+            </CardFooter>
+          </Card>
+        </form>
+      </Form>
 
       <LegalCertificationModal
         open={showCertificationModal}

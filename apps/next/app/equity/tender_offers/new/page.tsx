@@ -3,13 +3,13 @@ import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
-import FormSection from "@/components/FormSection";
 import Input from "@/components/Input";
 import MainLayout from "@/components/layouts/Main";
 import MutationButton from "@/components/MutationButton";
 import NumberInput from "@/components/NumberInput";
 import { Button } from "@/components/ui/button";
-import { CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Form } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { useCurrentCompany } from "@/global";
 import { trpc } from "@/trpc/client";
@@ -71,34 +71,41 @@ export default function NewTenderOffer() {
         </Button>
       }
     >
-      <FormSection title="Details">
-        <CardContent>
-          <div className="grid gap-4">
-            <Input value={startDate} onChange={setStartDate} type="date" label="Start date" />
-            <Input value={endDate} onChange={setEndDate} type="date" label="End date" />
-            <NumberInput
-              value={minimumValuation}
-              onChange={(value) => setMinimumValuation(value || 0)}
-              label="Minimum valuation"
-              prefix="$"
-            />
-            <div className="grid gap-2">
-              <Label htmlFor="attachment">Attachment</Label>
-              <input
-                id="attachment"
-                type="file"
-                accept="application/zip"
-                onChange={(e) => setAttachment(e.target.files?.[0])}
-              />
-            </div>
-          </div>
-        </CardContent>
-        <CardFooter>
-          <MutationButton mutation={createMutation} disabled={!valid} loadingText="Creating...">
-            Create tender offer
-          </MutationButton>
-        </CardFooter>
-      </FormSection>
+      <Form>
+        <form className="grid gap-x-5 gap-y-3 md:grid-cols-[25%_1fr]">
+          <hgroup>
+            <h2 className="text-xl font-bold">Details</h2>
+          </hgroup>
+          <Card>
+            <CardContent>
+              <div className="grid gap-4">
+                <Input value={startDate} onChange={setStartDate} type="date" label="Start date" />
+                <Input value={endDate} onChange={setEndDate} type="date" label="End date" />
+                <NumberInput
+                  value={minimumValuation}
+                  onChange={(value) => setMinimumValuation(value || 0)}
+                  label="Minimum valuation"
+                  prefix="$"
+                />
+                <div className="grid gap-2">
+                  <Label htmlFor="attachment">Attachment</Label>
+                  <input
+                    id="attachment"
+                    type="file"
+                    accept="application/zip"
+                    onChange={(e) => setAttachment(e.target.files?.[0])}
+                  />
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <MutationButton mutation={createMutation} disabled={!valid} loadingText="Creating...">
+                Create tender offer
+              </MutationButton>
+            </CardFooter>
+          </Card>
+        </form>
+      </Form>
     </MainLayout>
   );
 }
